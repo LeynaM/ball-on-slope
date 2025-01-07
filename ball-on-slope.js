@@ -9,10 +9,21 @@ let rightHandle;
 let isLeftHandlePressed = false;
 let isRightHandlePressed = false;
 let quadrilateral;
+let canvasWidth;
+let canvasHeight;
+
+function setCanvasSize() {
+  const canvasWrapperElement = document.getElementById("canvas-wrapper");
+  resizeCanvas(
+    canvasWrapperElement.clientWidth,
+    canvasWrapperElement.clientHeight,
+  );
+}
 
 function setup() {
-  const canvas = createCanvas(2000, 1000);
+  const canvas = createCanvas();
   canvas.parent("canvas-wrapper");
+  setCanvasSize();
   canvas.mouseClicked(spawnBall);
 
   addSlider(0.1, 10, 0.5);
@@ -24,6 +35,18 @@ function setup() {
   addDragHandles(leftHandleY, rightHandleY);
 
   frameRate(60);
+}
+
+function windowResized() {
+  const leftHandleRelativeY = leftHandle.y / height;
+  const rightHandleRelativeY = rightHandle.y / height;
+  setCanvasSize();
+  quadrilateral = setQuadrilateral(
+    leftHandle.y + BORDER_SIZE / 2,
+    rightHandle.y + BORDER_SIZE / 2,
+  );
+  leftHandle.position(-BORDER_SIZE, leftHandleRelativeY * height);
+  rightHandle.position(width, rightHandleRelativeY * height);
 }
 
 let collisionEdgeNormal = null;
@@ -38,12 +61,16 @@ function draw() {
     collisionEdgeNormal = null;
   }
 
-  preUpdateNormals = quadrilateral.map((edge) => findNormalVector(currentBall, edge));
+  preUpdateNormals = quadrilateral.map((edge) =>
+    findNormalVector(currentBall, edge),
+  );
 
   currentBall.applyForce(gravity);
   currentBall.update();
 
-  postUpdateNormals = quadrilateral.map((edge) => findNormalVector(currentBall, edge));
+  postUpdateNormals = quadrilateral.map((edge) =>
+    findNormalVector(currentBall, edge),
+  );
 
   postUpdateNormals.forEach((newNormal, index) => {
     const isBallIntersectingEdge = newNormal.mag() < currentBall.radius;
@@ -92,7 +119,7 @@ function drawScene() {
       accumulator.push(edge.start.y);
 
       return accumulator;
-    }, [])
+    }, []),
   );
 }
 
@@ -109,7 +136,8 @@ function findNormalVector(ball, edge) {
         edge.gradient * (ball.position.y - edge.start.y)) /
       (edge.gradient ** 2 + 1);
 
-    yIntersect = edge.gradient * xIntersect - edge.gradient * edge.start.x + edge.start.y;
+    yIntersect =
+      edge.gradient * xIntersect - edge.gradient * edge.start.x + edge.start.y;
   }
 
   const intersect = createVector(xIntersect, yIntersect);
@@ -120,7 +148,7 @@ function findNormalVector(ball, edge) {
 function addSlider(min, max, initial) {
   let sliderWrapper = createDiv();
   sliderWrapper.parent("canvas-wrapper");
-  sliderWrapper.position(width - 350, 35);
+  sliderWrapper.position(35, 35);
   sliderWrapper.addClass("slider-wrapper");
 
   let label = createSpan("Gravity");
@@ -220,7 +248,10 @@ function setQuadrilateral(bottomLeftY, bottomRightY) {
 }
 
 function clampY(value) {
-  return Math.min(Math.max(value, (3 * BORDER_SIZE) / 4), height - (3 * BORDER_SIZE) / 4);
+  return Math.min(
+    Math.max(value, (3 * BORDER_SIZE) / 4),
+    height - (3 * BORDER_SIZE) / 4,
+  );
 }
 
 class RigidBody {
@@ -278,18 +309,26 @@ class RigidBody {
 
     const velocityParallelToEdge = normalVector
       .copy()
-      .mult(this.velocity.copy().dot(normalVector) / normalVector.copy().magSq());
+      .mult(
+        this.velocity.copy().dot(normalVector) / normalVector.copy().magSq(),
+      );
     this.velocity.sub(velocityParallelToEdge.mult(2));
   }
 
   moveBackToEdge(normalVector) {
     if (normalVector.y > 0) {
       const distancePastTheEdge = this.radius + normalVector.mag();
-      const directionToTheEdge = normalVector.copy().normalize().mult(distancePastTheEdge);
+      const directionToTheEdge = normalVector
+        .copy()
+        .normalize()
+        .mult(distancePastTheEdge);
       this.position.sub(directionToTheEdge);
     } else {
       const distancePastTheEdge = this.radius - normalVector.mag();
-      const directionToTheEdge = normalVector.copy().normalize().mult(distancePastTheEdge);
+      const directionToTheEdge = normalVector
+        .copy()
+        .normalize()
+        .mult(distancePastTheEdge);
       this.position.add(directionToTheEdge);
     }
   }
