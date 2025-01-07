@@ -1,46 +1,54 @@
 let slope;
 let gravity;
-let ball;
+let currentBall;
 
 function setup() {
-  createCanvas(1000, 1000);
+  createCanvas(2500, 1000);
   gravity = createVector(0, 0.2);
 
-  slope = {
-    start: createVector(0, height * 0.5),
-    end: createVector(width, height * 0.7),
-  };
-  slope.gradient = (slope.end.y - slope.start.y) / (slope.end.x - slope.start.x);
-  slope.angle = atan(slope.end.x / slope.start.y);
+  const slopeStart = createVector(0, height * 0.5);
+  const slopeEnd = createVector(width, height * 0.7);
 
-  ball = new RigidBody({
-    position: createVector(50, 200),
+  slope = {
+    start: slopeStart,
+    end: slopeEnd,
+    gradient: (slopeEnd.y - slopeStart.y) / (slopeEnd.x - slopeStart.x),
+    angle: atan(slopeEnd.x / slopeStart.y),
+  };
+
+  frameRate(240);
+}
+
+let bounceBall = false;
+
+function draw() {
+  drawScene();
+  if (!currentBall) return;
+
+  if (bounceBall) {
+    const normalVector = findNormalVector(currentBall);
+    currentBall.bounce(normalVector);
+    bounceBall = false;
+  } else {
+    currentBall.applyForce(gravity);
+  }
+
+  currentBall.update();
+
+  if (willCollideNextFrame(currentBall)) {
+    bounceBall = true;
+  }
+  currentBall.draw();
+}
+
+function mouseClicked() {
+  currentBall = new RigidBody({
+    position: createVector(mouseX, mouseY),
     velocity: createVector(0, 0),
     acceleration: createVector(0, 0),
     radius: 0.03 * height,
   });
-  ball.log();
-}
-
-function draw() {
-  drawScene();
-
-  ball.applyForce(gravity);
-
-  const normalVector = findNormalVector();
-  if (isColliding(normalVector)) {
-    ball.log();
-    ball.bounce(normalVector);
-    ball.log();
-    // noLoop();
-  }
-  ball.update();
-  ball.draw();
-
-  stroke("blue");
-  strokeWeight(2);
-  const intersect = ball.position.copy().sub(normalVector);
-  drawVector(intersect, normalVector);
+  // currentBall.log();
 }
 
 function drawScene() {
@@ -50,7 +58,7 @@ function drawScene() {
   quad(slope.start.x, slope.start.y, slope.end.x, slope.end.y, width, height, 0, height);
 }
 
-function findNormalVector() {
+function findNormalVector(ball) {
   const xIntersect =
     (ball.position.x +
       slope.gradient ** 2 * slope.start.x +
@@ -63,27 +71,22 @@ function findNormalVector() {
   return ball.position.copy().sub(intersect);
 }
 
-function isColliding(normalVector) {
-  return normalVector.mag() < ball.radius;
-}
+function willCollideNextFrame(ball) {
+  const nextBall = ball.copy();
+  nextBall.applyForce(gravity);
+  nextBall.update();
 
-// https://editor.p5js.org/ada10086/sketches/U4AhsYrk
-function arrowHead(start, vector) {
-  // push(); //start new drawing state
-  var norm = createVector(vector.x, vector.y);
-  norm.normalize();
-  // applyMatrix(1,0,0,1,vector.x - start.x,vector.y - start.y)
-  applyMatrix(norm.x, norm.y, -norm.y, norm.x, vector.x - start.x, vector.y - start.y);
+  const normalVector = findNormalVector(nextBall);
 
-  fill("blue");
-  triangle(0, 60, 120, 0, 0, -60);
-  // pop();
+  if (findNormalVector(ball).mag() < ball.radius && normalVector.mag() < nextBall.radius) noLoop();
+  return normalVector.mag() < nextBall.radius;
 }
 
 function drawVector(start, vector) {
+  stroke("blue");
+  strokeWeight(2);
   const end = start.copy().add(vector);
   line(start.x, start.y, end.x, end.y);
-  arrowHead(start, vector);
 }
 
 class RigidBody {
@@ -103,17 +106,14 @@ class RigidBody {
     });
   }
 
-  // setProperties({
-  //   position: argPosition,
-  //   velocity: argVelocity,
-  //   acceleration: argAcceleration,
-  //   radius: argRadius,
-  // }) {
-  //   if (argPosition) this.position = argPosition;
-  //   if (argVelocity) this.velocity = argVelocity;
-  //   if (argAcceleration) this.acceleration = argAcceleration;
-  //   if (argRadius) this.radius = argRadius;
-  // }
+  copy() {
+    return new RigidBody({
+      position: this.position.copy(),
+      velocity: this.velocity.copy(),
+      acceleration: this.acceleration.copy(),
+      radius: this.radius,
+    });
+  }
 
   draw() {
     fill("red");
@@ -131,10 +131,10 @@ class RigidBody {
   }
 
   bounce(normalVector) {
-    // V as the initial velocity vector of the ball.
-    // V∥​ as the component of V parallel to the slope.
-    // V⊥​ as the component of V perpendicular to the slope.
-    // V′ as the resultant velocity vector of the ball.
+    // V is the initial velocity vector of the ball.
+    // V∥​ is the component of V parallel to the slope.
+    // V⊥​ is the component of V perpendicular to the slope.
+    // V′ is the resultant velocity vector of the ball.
 
     // V∥ = (( V · n ) / |n|^2 ) * n
     // V⊥ = V - V∥
