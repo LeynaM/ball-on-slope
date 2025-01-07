@@ -10,7 +10,8 @@ function setup() {
     start: createVector(0, height * 0.5),
     end: createVector(width, height * 0.7),
   };
-  slope.gradient = (slope.end.y - slope.start.y) / (slope.end.x - slope.start.x);
+  slope.gradient =
+    (slope.end.y - slope.start.y) / (slope.end.x - slope.start.x);
   slope.angle = atan(slope.end.x / slope.start.y);
 
   ball = new RigidBody({
@@ -27,10 +28,9 @@ function draw() {
 
   ball.applyForce(gravity);
 
-  if (isColliding()) {
-    // ball.acceleration.add(normalForce());
-    // console.log("n", normalForce());
-    // console.log(ball.acceleration);
+  const normalVector = findNormalVector();
+  if (isColliding(normalVector)) {
+    ball.bounce(normalVector);
     noLoop();
   }
   ball.update();
@@ -38,42 +38,84 @@ function draw() {
 
   stroke("blue");
   strokeWeight(2);
-  const intersect = findIntersect();
-  line(ball.position.x, ball.position.y, intersect.x, intersect.y);
+  // const normalVector = findNormalVector();
+  console.log("ball", ball.position.toString());
+  console.log("nv", normalVector.toString());
+  const intersect = ball.position.copy().sub(normalVector);
+  console.log("intersect", intersect.toString());
+  drawVector(intersect, normalVector);
 }
 
 function drawScene() {
   background("lightblue");
   noStroke();
   fill("green");
-  quad(slope.start.x, slope.start.y, slope.end.x, slope.end.y, width, height, 0, height);
+  quad(
+    slope.start.x,
+    slope.start.y,
+    slope.end.x,
+    slope.end.y,
+    width,
+    height,
+    0,
+    height
+  );
 }
 
-function findIntersect() {
-  const x =
+function findNormalVector() {
+  const xIntersect =
     (ball.position.x +
       slope.gradient ** 2 * slope.start.x +
       slope.gradient * (ball.position.y - slope.start.y)) /
     (slope.gradient ** 2 + 1);
-  const y = slope.gradient * x - slope.gradient * slope.start.x + slope.start.y;
+  const yIntersect =
+    slope.gradient * xIntersect -
+    slope.gradient * slope.start.x +
+    slope.start.y;
 
-  return createVector(x, y);
+  const intersect = createVector(xIntersect, yIntersect);
+  console.log("interesectA", intersect.toString());
+
+  return ball.position.copy().sub(intersect);
 }
 
-function isColliding() {
-  const intersect = findIntersect();
-  const distanceToIntersect = sqrt(
-    (ball.position.x - intersect.x) ** 2 + (ball.position.y - intersect.y) ** 2
+function isColliding(normalVector) {
+  // const normalVector = findNormalVector();
+
+  return normalVector.mag() < ball.radius;
+}
+
+// https://editor.p5js.org/ada10086/sketches/U4AhsYrk
+function arrowHead(start, vector) {
+  // push(); //start new drawing state
+  var norm = createVector(vector.x, vector.y);
+  norm.normalize();
+  // applyMatrix(1,0,0,1,vector.x - start.x,vector.y - start.y)
+  applyMatrix(
+    norm.x,
+    norm.y,
+    -norm.y,
+    norm.x,
+    vector.x - start.x,
+    vector.y - start.y
   );
 
-  return distanceToIntersect < ball.radius;
+  fill("blue");
+  triangle(0, 60, 120, 0, 0, -60);
+  // pop();
 }
 
-function normalForce() {
-  const magnitude = sqrt(ball.acceleration.x ** 2 + ball.acceleration.y ** 2) * sin(slope.angle);
-
-  return createVector(magnitude * cos(slope.angle), -magnitude * sin(slope.angle));
+function drawVector(start, vector) {
+  const end = start.copy().add(vector);
+  line(start.x, start.y, end.x, end.y);
+  arrowHead(start, vector);
 }
+
+// function normalForce() {
+//   const magnitude = sqrt(ball.acceleration.x ** 2 + ball.acceleration.y ** 2) * sin(slope.angle);
+
+//   return createVector(magnitude * cos(slope.angle), -magnitude * sin(slope.angle));
+// }
 
 class RigidBody {
   constructor(initialProperties) {
@@ -92,17 +134,17 @@ class RigidBody {
     });
   }
 
-  setProperties({
-    position: argPosition,
-    velocity: argVelocity,
-    acceleration: argAcceleration,
-    radius: argRadius,
-  }) {
-    if (argPosition) this.position = argPosition;
-    if (argVelocity) this.velocity = argVelocity;
-    if (argAcceleration) this.acceleration = argAcceleration;
-    if (argRadius) this.radius = argRadius;
-  }
+  // setProperties({
+  //   position: argPosition,
+  //   velocity: argVelocity,
+  //   acceleration: argAcceleration,
+  //   radius: argRadius,
+  // }) {
+  //   if (argPosition) this.position = argPosition;
+  //   if (argVelocity) this.velocity = argVelocity;
+  //   if (argAcceleration) this.acceleration = argAcceleration;
+  //   if (argRadius) this.radius = argRadius;
+  // }
 
   draw() {
     fill("red");
@@ -117,5 +159,17 @@ class RigidBody {
 
   applyForce(force) {
     this.acceleration.add(force);
+  }
+
+  bounce(normalVector) {
+    const unitNormal = normalVector.copy().normalize();
+    const v = 2 * this.velocity.copy().dot(normalVector);
+    console.log("\nbounce");
+    console.log(normalVector.toString());
+    console.log(unitNormal.toString());
+    console.log(v);
+    console.log(unitNormal.copy().mult(v).toString());
+    console.log("\n");
+    this.velocity.sub(unitNormal.mult(v));
   }
 }
