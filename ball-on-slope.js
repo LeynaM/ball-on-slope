@@ -1,4 +1,4 @@
-const BORDER_SIZE = 50;
+const BORDER_SIZE = 25;
 
 let slope;
 let gravity;
@@ -10,17 +10,18 @@ let isLeftHandlePressed = false;
 let isRightHandlePressed = false;
 
 function setup() {
-  const canvas = createCanvas(2500, 1000);
+  const canvas = createCanvas(2000, 1000);
   canvas.parent("canvas-wrapper");
+  canvas.mouseClicked(spawnBall);
 
-  drawSlider(0.1, 10, 0.5);
+  addSlider(0.1, 10, 0.5);
 
   setSlope({
     startY: height * 0.5,
     endY: height * 0.7,
   });
 
-  createDragHandles();
+  addDragHandles();
 
   frameRate(60);
 }
@@ -49,7 +50,7 @@ function draw() {
   currentBall.draw();
 }
 
-function mouseClicked() {
+function spawnBall() {
   if (isLeftHandlePressed || isRightHandlePressed) return;
 
   currentBall = new RigidBody({
@@ -68,11 +69,6 @@ function drawScene() {
   noStroke();
   fill("green");
   quad(slope.start.x, slope.start.y, slope.end.x, slope.end.y, width, height, 0, height);
-
-  noFill();
-  stroke("black");
-  strokeWeight(BORDER_SIZE);
-  rect(0, 0, width, height);
 }
 
 function findNormalVector(ball) {
@@ -94,43 +90,43 @@ function isBelowSlope(ball) {
   return normalVector.y > 0 || normalVector.mag() < ball.radius;
 }
 
-function drawSlider(min, max, initial) {
+function addSlider(min, max, initial) {
+  let sliderWrapper = createDiv();
+  sliderWrapper.parent("canvas-wrapper");
+  sliderWrapper.position(width - 350, 35);
+  sliderWrapper.addClass("slider-wrapper");
+
   let label = createSpan("Gravity");
-  label.position(width - 350, 40);
-  label.addClass("label");
+  label.parent(sliderWrapper);
 
   slider = createSlider(min, max, initial, 0);
-  slider.position(width - 250, 40);
+  slider.parent(sliderWrapper);
   slider.size(200);
 }
 
-function createDragHandles() {
-  const diameter = BORDER_SIZE / 2;
+function addDragHandles() {
   leftHandle = createDiv();
   leftHandle.parent("canvas-wrapper");
-  leftHandle.position(slope.start.x, slope.start.y - diameter / 2);
-  leftHandle.size(diameter, diameter);
+  leftHandle.position(slope.start.x - BORDER_SIZE, slope.start.y - BORDER_SIZE / 2);
+  leftHandle.size(BORDER_SIZE, BORDER_SIZE);
   leftHandle.addClass("handle");
 
   leftHandle.mousePressed(() => {
-    console.log("leftHandle mouse pressed");
     isLeftHandlePressed = true;
   });
 
   rightHandle = createDiv();
   rightHandle.parent("canvas-wrapper");
-  rightHandle.position(slope.end.x - diameter, slope.end.y - diameter / 2);
-  rightHandle.size(diameter, diameter);
+  rightHandle.position(slope.end.x, slope.end.y - BORDER_SIZE / 2);
+  rightHandle.size(BORDER_SIZE, BORDER_SIZE);
   rightHandle.addClass("handle");
 
   rightHandle.mousePressed(() => {
-    console.log("rightHandle mouse pressed");
     isRightHandlePressed = true;
   });
 }
 
 function mouseReleased() {
-  console.log("GLOBAL mouse released");
   setTimeout(() => {
     isLeftHandlePressed = false;
     isRightHandlePressed = false;
@@ -138,14 +134,13 @@ function mouseReleased() {
 }
 
 function mouseDragged() {
-  console.log("mouse moved");
   if (isLeftHandlePressed) {
     setSlope({ startY: mouseY });
-    leftHandle.position(slope.start.x, slope.start.y - BORDER_SIZE / 4);
+    leftHandle.position(slope.start.x - BORDER_SIZE, slope.start.y - BORDER_SIZE / 2);
   }
   if (isRightHandlePressed) {
     setSlope({ endY: mouseY });
-    rightHandle.position(slope.end.x - BORDER_SIZE / 2, slope.end.y - BORDER_SIZE / 4);
+    rightHandle.position(slope.end.x, slope.end.y - BORDER_SIZE / 2);
   }
 }
 
@@ -169,7 +164,7 @@ function setSlope({ startY = slope.start.y, endY = slope.end.y } = {}) {
 }
 
 function clampY(value) {
-  return Math.min(Math.max(value, (3 * BORDER_SIZE) / 8), height - (3 * BORDER_SIZE) / 8);
+  return Math.min(Math.max(value, (3 * BORDER_SIZE) / 4), height - (3 * BORDER_SIZE) / 4);
 }
 
 class RigidBody {
