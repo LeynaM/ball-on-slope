@@ -8,6 +8,7 @@ let leftHandle;
 let rightHandle;
 let isLeftHandlePressed = false;
 let isRightHandlePressed = false;
+let quadrilateral;
 
 function setup() {
   const canvas = createCanvas(2000, 1000);
@@ -16,37 +17,46 @@ function setup() {
 
   addSlider(0.1, 10, 0.5);
 
-  setSlope({
-    startY: height * 0.5,
-    endY: height * 0.7,
-  });
+  const leftHandleY = height * 0.5;
+  const rightHandleY = height * 0.7;
+  quadrilateral = setQuadrilateral(leftHandleY, rightHandleY);
 
-  addDragHandles();
+  addDragHandles(leftHandleY, rightHandleY);
 
   frameRate(60);
 }
 
-let hasCollided = false;
+let collisionEdgeNormal = null;
 
 function draw() {
   drawScene();
   gravity = createVector(0, slider.value());
   if (!currentBall) return;
 
-  if (hasCollided) {
-    const normalVector = findNormalVector(currentBall);
-    currentBall.bounce(normalVector);
-    hasCollided = false;
+  if (collisionEdgeNormal) {
+    currentBall.bounce(collisionEdgeNormal);
+    collisionEdgeNormal = null;
   }
+
+  preUpdateNormals = quadrilateral.map((edge) => findNormalVector(currentBall, edge));
 
   currentBall.applyForce(gravity);
   currentBall.update();
 
-  if (isBelowSlope(currentBall)) {
-    const normalVector = findNormalVector(currentBall);
-    currentBall.moveBackToSlope(normalVector);
-    hasCollided = true;
-  }
+  postUpdateNormals = quadrilateral.map((edge) => findNormalVector(currentBall, edge));
+
+  postUpdateNormals.forEach((newNormal, index) => {
+    const isBallIntersectingEdge = newNormal.mag() < currentBall.radius;
+    const hasBallTunnelledThroughEdge =
+      Math.sign(preUpdateNormals[index].x) !== Math.sign(newNormal.x) ||
+      Math.sign(preUpdateNormals[index].y) !== Math.sign(newNormal.y);
+
+    if (isBallIntersectingEdge || hasBallTunnelledThroughEdge) {
+      currentBall.moveBackToEdge(newNormal);
+      collisionEdgeNormal = newNormal;
+    }
+  });
+
   currentBall.draw();
 }
 
@@ -59,35 +69,52 @@ function spawnBall() {
     acceleration: createVector(0, 0),
     radius: 0.03 * height,
   });
-  if (isBelowSlope(currentBall)) {
-    currentBall = null;
-  }
+  // if (isBelowSlope(currentBall)) {
+  //   currentBall = null;
+  // }
 }
 
 function drawScene() {
-  background("lightblue");
+  background("green");
   noStroke();
-  fill("green");
-  quad(slope.start.x, slope.start.y, slope.end.x, slope.end.y, width, height, 0, height);
+  fill("lightblue");
+  // console.log(
+  //   ...quadrilateral.reduce((accumulator, edge) => {
+  //     accumulator.push(edge.start.x);
+  //     accumulator.push(edge.start.y);
+
+  //     return accumulator;
+  //   }, [])
+  // );
+  quad(
+    ...quadrilateral.reduce((accumulator, edge) => {
+      accumulator.push(edge.start.x);
+      accumulator.push(edge.start.y);
+
+      return accumulator;
+    }, [])
+  );
 }
 
-function findNormalVector(ball) {
-  const xIntersect =
-    (ball.position.x +
-      slope.gradient ** 2 * slope.start.x +
-      slope.gradient * (ball.position.y - slope.start.y)) /
-    (slope.gradient ** 2 + 1);
-  const yIntersect = slope.gradient * xIntersect - slope.gradient * slope.start.x + slope.start.y;
+function findNormalVector(ball, edge) {
+  let xIntersect;
+  let yIntersect;
+  if (edge.gradient === Infinity) {
+    xIntersect = edge.start.x;
+    yIntersect = ball.position.y;
+  } else {
+    xIntersect =
+      (ball.position.x +
+        edge.gradient ** 2 * edge.start.x +
+        edge.gradient * (ball.position.y - edge.start.y)) /
+      (edge.gradient ** 2 + 1);
+
+    yIntersect = edge.gradient * xIntersect - edge.gradient * edge.start.x + edge.start.y;
+  }
 
   const intersect = createVector(xIntersect, yIntersect);
 
   return ball.position.copy().sub(intersect);
-}
-
-function isBelowSlope(ball) {
-  const normalVector = findNormalVector(ball);
-
-  return normalVector.y > 0 || normalVector.mag() < ball.radius;
 }
 
 function addSlider(min, max, initial) {
@@ -104,10 +131,10 @@ function addSlider(min, max, initial) {
   slider.size(200);
 }
 
-function addDragHandles() {
+function addDragHandles(leftHandleY, rightHandleY) {
   leftHandle = createDiv();
   leftHandle.parent("canvas-wrapper");
-  leftHandle.position(slope.start.x - BORDER_SIZE, slope.start.y - BORDER_SIZE / 2);
+  setLeftHandlePosition(leftHandleY);
   leftHandle.size(BORDER_SIZE, BORDER_SIZE);
   leftHandle.addClass("handle");
 
@@ -117,13 +144,21 @@ function addDragHandles() {
 
   rightHandle = createDiv();
   rightHandle.parent("canvas-wrapper");
-  rightHandle.position(slope.end.x, slope.end.y - BORDER_SIZE / 2);
+  setRightHandlePosition(rightHandleY);
   rightHandle.size(BORDER_SIZE, BORDER_SIZE);
   rightHandle.addClass("handle");
 
   rightHandle.mousePressed(() => {
     isRightHandlePressed = true;
   });
+}
+
+function setLeftHandlePosition(leftHandleY) {
+  leftHandle.position(-BORDER_SIZE, leftHandleY - BORDER_SIZE / 2);
+}
+
+function setRightHandlePosition(rightHandleY) {
+  rightHandle.position(width, rightHandleY - BORDER_SIZE / 2);
 }
 
 function mouseReleased() {
@@ -135,12 +170,15 @@ function mouseReleased() {
 
 function mouseDragged() {
   if (isLeftHandlePressed) {
-    setSlope({ startY: mouseY });
-    leftHandle.position(slope.start.x - BORDER_SIZE, slope.start.y - BORDER_SIZE / 2);
+    const clampedY = clampY(mouseY);
+    setLeftHandlePosition(clampedY);
+    quadrilateral = setQuadrilateral(clampedY, rightHandle.y + BORDER_SIZE / 2);
   }
+
   if (isRightHandlePressed) {
-    setSlope({ endY: mouseY });
-    rightHandle.position(slope.end.x, slope.end.y - BORDER_SIZE / 2);
+    const clampedY = clampY(mouseY);
+    setRightHandlePosition(clampedY);
+    quadrilateral = setQuadrilateral(leftHandle.y + BORDER_SIZE / 2, clampedY);
   }
 }
 
@@ -151,16 +189,34 @@ function drawVector(start, vector) {
   line(start.x, start.y, end.x, end.y);
 }
 
-function setSlope({ startY = slope.start.y, endY = slope.end.y } = {}) {
-  start = createVector(0, clampY(startY));
-  end = createVector(width, clampY(endY));
+function setQuadrilateral(bottomLeftY, bottomRightY) {
+  const topLeft = createVector(0, 0);
+  const topRight = createVector(width, 0);
+  const bottomRight = createVector(width, bottomRightY);
+  const bottomLeft = createVector(0, bottomLeftY);
 
-  slope = {
-    start,
-    end,
-    gradient: (end.y - start.y) / (end.x - start.x),
-    angle: atan(end.x / start.y),
-  };
+  return [
+    {
+      start: topLeft,
+      end: topRight,
+      gradient: 0,
+    },
+    {
+      start: topRight,
+      end: bottomRight,
+      gradient: Infinity,
+    },
+    {
+      start: bottomRight,
+      end: bottomLeft,
+      gradient: (bottomRight.y - bottomLeft.y) / (bottomRight.x - bottomLeft.x),
+    },
+    {
+      start: bottomLeft,
+      end: topLeft,
+      gradient: Infinity,
+    },
+  ];
 }
 
 function clampY(value) {
@@ -211,8 +267,8 @@ class RigidBody {
 
   bounce(normalVector) {
     // V is the initial velocity vector of the ball.
-    // V∥​ is the component of V parallel to the slope.
-    // V⊥​ is the component of V perpendicular to the slope.
+    // V∥​ is the component of V parallel to the edge.
+    // V⊥​ is the component of V perpendicular to the edge.
     // V′ is the resultant velocity vector of the ball.
 
     // V∥ = (( V · n ) / |n|^2 ) * n
@@ -220,21 +276,21 @@ class RigidBody {
     // V' = V⊥ - V∥
     // V' = V - 2 * V∥
 
-    const velocityParallelToSlope = normalVector
+    const velocityParallelToEdge = normalVector
       .copy()
       .mult(this.velocity.copy().dot(normalVector) / normalVector.copy().magSq());
-    this.velocity.sub(velocityParallelToSlope.mult(2));
+    this.velocity.sub(velocityParallelToEdge.mult(2));
   }
 
-  moveBackToSlope(normalVector) {
+  moveBackToEdge(normalVector) {
     if (normalVector.y > 0) {
-      const distancePastTheSlope = this.radius + normalVector.mag();
-      const directionToTheSlope = normalVector.copy().normalize().mult(distancePastTheSlope);
-      this.position.sub(directionToTheSlope);
+      const distancePastTheEdge = this.radius + normalVector.mag();
+      const directionToTheEdge = normalVector.copy().normalize().mult(distancePastTheEdge);
+      this.position.sub(directionToTheEdge);
     } else {
-      const distancePastTheSlope = this.radius - normalVector.mag();
-      const directionToTheSlope = normalVector.copy().normalize().mult(distancePastTheSlope);
-      this.position.add(directionToTheSlope);
+      const distancePastTheEdge = this.radius - normalVector.mag();
+      const directionToTheEdge = normalVector.copy().normalize().mult(distancePastTheEdge);
+      this.position.add(directionToTheEdge);
     }
   }
 }
