@@ -4,7 +4,7 @@ let currentBall;
 
 function setup() {
   createCanvas(2500, 1000);
-  gravity = createVector(0, 0.2);
+  gravity = createVector(0, 0.5);
 
   const slopeStart = createVector(0, height * 0.5);
   const slopeEnd = createVector(width, height * 0.7);
@@ -16,7 +16,7 @@ function setup() {
     angle: atan(slopeEnd.x / slopeStart.y),
   };
 
-  frameRate(240);
+  frameRate(120);
 }
 
 let hasCollided = false;
@@ -34,7 +34,7 @@ function draw() {
   currentBall.applyForce(gravity);
   currentBall.update();
 
-  if (isColliding(currentBall)) {
+  if (isBelowSlope(currentBall)) {
     const normalVector = findNormalVector(currentBall);
     currentBall.moveBackToSlope(normalVector);
     hasCollided = true;
@@ -49,6 +49,9 @@ function mouseClicked() {
     acceleration: createVector(0, 0),
     radius: 0.03 * height,
   });
+  if (isBelowSlope(currentBall)) {
+    currentBall = null;
+  }
 }
 
 function drawScene() {
@@ -71,10 +74,10 @@ function findNormalVector(ball) {
   return ball.position.copy().sub(intersect);
 }
 
-function isColliding(ball) {
+function isBelowSlope(ball) {
   const normalVector = findNormalVector(ball);
 
-  return normalVector.mag() < ball.radius;
+  return normalVector.y > 0 || normalVector.mag() < ball.radius;
 }
 
 function drawVector(start, vector) {
