@@ -19,24 +19,25 @@ function setup() {
   frameRate(240);
 }
 
-let bounceBall = false;
+let hasCollided = false;
 
 function draw() {
   drawScene();
   if (!currentBall) return;
 
-  if (bounceBall) {
+  if (hasCollided) {
     const normalVector = findNormalVector(currentBall);
     currentBall.bounce(normalVector);
-    bounceBall = false;
-  } else {
-    currentBall.applyForce(gravity);
+    hasCollided = false;
   }
 
+  currentBall.applyForce(gravity);
   currentBall.update();
 
-  if (willCollideNextFrame(currentBall)) {
-    bounceBall = true;
+  if (isColliding(currentBall)) {
+    const normalVector = findNormalVector(currentBall);
+    currentBall.moveBackToSlope(normalVector);
+    hasCollided = true;
   }
   currentBall.draw();
 }
@@ -48,7 +49,6 @@ function mouseClicked() {
     acceleration: createVector(0, 0),
     radius: 0.03 * height,
   });
-  // currentBall.log();
 }
 
 function drawScene() {
@@ -71,15 +71,10 @@ function findNormalVector(ball) {
   return ball.position.copy().sub(intersect);
 }
 
-function willCollideNextFrame(ball) {
-  const nextBall = ball.copy();
-  nextBall.applyForce(gravity);
-  nextBall.update();
+function isColliding(ball) {
+  const normalVector = findNormalVector(ball);
 
-  const normalVector = findNormalVector(nextBall);
-
-  if (findNormalVector(ball).mag() < ball.radius && normalVector.mag() < nextBall.radius) noLoop();
-  return normalVector.mag() < nextBall.radius;
+  return normalVector.mag() < ball.radius;
 }
 
 function drawVector(start, vector) {
@@ -145,5 +140,11 @@ class RigidBody {
       .copy()
       .mult(this.velocity.copy().dot(normalVector) / normalVector.copy().magSq());
     this.velocity.sub(velocityParallelToSlope.mult(2));
+  }
+
+  moveBackToSlope(normalVector) {
+    const distancePastTheSlope = this.radius - normalVector.mag();
+    const directionToTheSlope = normalVector.copy().normalize().mult(distancePastTheSlope);
+    this.position.add(directionToTheSlope);
   }
 }
