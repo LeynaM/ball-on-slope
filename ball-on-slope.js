@@ -1,10 +1,11 @@
 let slope;
 let gravity;
 let currentBall;
+let slider;
 
 function setup() {
   createCanvas(2500, 1000);
-  gravity = createVector(0, 0.5);
+  drawSlider(0.1, 10, 0.5);
 
   const slopeStart = createVector(0, height * 0.5);
   const slopeEnd = createVector(width, height * 0.7);
@@ -16,13 +17,14 @@ function setup() {
     angle: atan(slopeEnd.x / slopeStart.y),
   };
 
-  frameRate(120);
+  frameRate(60);
 }
 
 let hasCollided = false;
 
 function draw() {
   drawScene();
+  gravity = createVector(0, slider.value());
   if (!currentBall) return;
 
   if (hasCollided) {
@@ -78,6 +80,16 @@ function isBelowSlope(ball) {
   const normalVector = findNormalVector(ball);
 
   return normalVector.y > 0 || normalVector.mag() < ball.radius;
+}
+
+function drawSlider(min, max, initial) {
+  let label = createSpan("Gravity");
+  label.position(width - 350, 40);
+  label.addClass("label");
+
+  slider = createSlider(min, max, initial, 0);
+  slider.position(width - 250, 40);
+  slider.size(200);
 }
 
 function drawVector(start, vector) {
@@ -146,8 +158,14 @@ class RigidBody {
   }
 
   moveBackToSlope(normalVector) {
-    const distancePastTheSlope = this.radius - normalVector.mag();
-    const directionToTheSlope = normalVector.copy().normalize().mult(distancePastTheSlope);
-    this.position.add(directionToTheSlope);
+    if (normalVector.y > 0) {
+      const distancePastTheSlope = this.radius + normalVector.mag();
+      const directionToTheSlope = normalVector.copy().normalize().mult(distancePastTheSlope);
+      this.position.sub(directionToTheSlope);
+    } else {
+      const distancePastTheSlope = this.radius - normalVector.mag();
+      const directionToTheSlope = normalVector.copy().normalize().mult(distancePastTheSlope);
+      this.position.add(directionToTheSlope);
+    }
   }
 }
