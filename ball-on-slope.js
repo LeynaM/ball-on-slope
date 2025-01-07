@@ -1,21 +1,24 @@
+const BORDER_SIZE = 50;
+
 let slope;
 let gravity;
 let currentBall;
 let slider;
+let handle;
+let isHandlePressed = false;
 
 function setup() {
-  createCanvas(2500, 1000);
+  const canvas = createCanvas(2500, 1000);
+  canvas.parent("canvas-wrapper");
+
   drawSlider(0.1, 10, 0.5);
 
-  const slopeStart = createVector(0, height * 0.5);
-  const slopeEnd = createVector(width, height * 0.7);
+  setSlope({
+    startY: height * 0.5,
+    endY: height * 0.7,
+  });
 
-  slope = {
-    start: slopeStart,
-    end: slopeEnd,
-    gradient: (slopeEnd.y - slopeStart.y) / (slopeEnd.x - slopeStart.x),
-    angle: atan(slopeEnd.x / slopeStart.y),
-  };
+  createDragHandles();
 
   frameRate(60);
 }
@@ -45,6 +48,8 @@ function draw() {
 }
 
 function mouseClicked() {
+  if (isHandlePressed) return;
+
   currentBall = new RigidBody({
     position: createVector(mouseX, mouseY),
     velocity: createVector(0, 0),
@@ -61,6 +66,11 @@ function drawScene() {
   noStroke();
   fill("green");
   quad(slope.start.x, slope.start.y, slope.end.x, slope.end.y, width, height, 0, height);
+
+  noFill();
+  stroke("black");
+  strokeWeight(BORDER_SIZE);
+  rect(0, 0, width, height);
 }
 
 function findNormalVector(ball) {
@@ -92,11 +102,55 @@ function drawSlider(min, max, initial) {
   slider.size(200);
 }
 
+function createDragHandles() {
+  handle = createDiv();
+  const diameter = BORDER_SIZE / 2;
+  handle.parent("canvas-wrapper");
+  handle.position(slope.start.x, slope.start.y - diameter / 2);
+  handle.size(diameter, diameter);
+  handle.addClass("handle");
+
+  handle.mousePressed(() => {
+    console.log("handle mouse pressed");
+    isHandlePressed = true;
+  });
+
+  handle.mouseReleased(() => {
+    console.log("handle mouse released");
+    isHandlePressed = false;
+  });
+}
+
+function mouseReleased() {
+  console.log("GLOBAL mouse released");
+  isHandlePressed = false;
+}
+
+function mouseDragged() {
+  console.log("mouse moved");
+  if (isHandlePressed) {
+    setSlope({ startY: mouseY });
+    handle.position(slope.start.x, slope.start.y - BORDER_SIZE / 4);
+  }
+}
+
 function drawVector(start, vector) {
   stroke("blue");
   strokeWeight(2);
   const end = start.copy().add(vector);
   line(start.x, start.y, end.x, end.y);
+}
+
+function setSlope({ startY = slope.start.y, endY = slope.end.y } = {}) {
+  start = createVector(0, startY);
+  end = createVector(width, endY);
+
+  slope = {
+    start,
+    end,
+    gradient: (end.y - start.y) / (end.x - start.x),
+    angle: atan(end.x / start.y),
+  };
 }
 
 class RigidBody {
@@ -126,6 +180,7 @@ class RigidBody {
   }
 
   draw() {
+    noStroke();
     fill("red");
     ellipse(this.position.x, this.position.y, this.radius * 2);
   }

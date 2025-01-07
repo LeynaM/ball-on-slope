@@ -2,3 +2,19 @@
     font-size: 24px;
     font-family: "Rubik", sans-serif;
 }
+
+.handle {
+    position: absolute;
+    border-radius: 50%;
+    background-color: yellow;
+    /* width: 24px; */
+    /* height: 24px; */
+}
+
+.handle:hover {
+    cursor: pointer;
+}
+
+#canvas-wrapper {
+    position: relative;
+}
