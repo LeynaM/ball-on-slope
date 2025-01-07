@@ -4,8 +4,10 @@ let slope;
 let gravity;
 let currentBall;
 let slider;
-let handle;
-let isHandlePressed = false;
+let leftHandle;
+let rightHandle;
+let isLeftHandlePressed = false;
+let isRightHandlePressed = false;
 
 function setup() {
   const canvas = createCanvas(2500, 1000);
@@ -48,7 +50,7 @@ function draw() {
 }
 
 function mouseClicked() {
-  if (isHandlePressed) return;
+  if (isLeftHandlePressed || isRightHandlePressed) return;
 
   currentBall = new RigidBody({
     position: createVector(mouseX, mouseY),
@@ -103,34 +105,47 @@ function drawSlider(min, max, initial) {
 }
 
 function createDragHandles() {
-  handle = createDiv();
   const diameter = BORDER_SIZE / 2;
-  handle.parent("canvas-wrapper");
-  handle.position(slope.start.x, slope.start.y - diameter / 2);
-  handle.size(diameter, diameter);
-  handle.addClass("handle");
+  leftHandle = createDiv();
+  leftHandle.parent("canvas-wrapper");
+  leftHandle.position(slope.start.x, slope.start.y - diameter / 2);
+  leftHandle.size(diameter, diameter);
+  leftHandle.addClass("handle");
 
-  handle.mousePressed(() => {
-    console.log("handle mouse pressed");
-    isHandlePressed = true;
+  leftHandle.mousePressed(() => {
+    console.log("leftHandle mouse pressed");
+    isLeftHandlePressed = true;
   });
 
-  handle.mouseReleased(() => {
-    console.log("handle mouse released");
-    isHandlePressed = false;
+  rightHandle = createDiv();
+  rightHandle.parent("canvas-wrapper");
+  rightHandle.position(slope.end.x - diameter, slope.end.y - diameter / 2);
+  rightHandle.size(diameter, diameter);
+  rightHandle.addClass("handle");
+
+  rightHandle.mousePressed(() => {
+    console.log("rightHandle mouse pressed");
+    isRightHandlePressed = true;
   });
 }
 
 function mouseReleased() {
   console.log("GLOBAL mouse released");
-  isHandlePressed = false;
+  setTimeout(() => {
+    isLeftHandlePressed = false;
+    isRightHandlePressed = false;
+  }, 0);
 }
 
 function mouseDragged() {
   console.log("mouse moved");
-  if (isHandlePressed) {
+  if (isLeftHandlePressed) {
     setSlope({ startY: mouseY });
-    handle.position(slope.start.x, slope.start.y - BORDER_SIZE / 4);
+    leftHandle.position(slope.start.x, slope.start.y - BORDER_SIZE / 4);
+  }
+  if (isRightHandlePressed) {
+    setSlope({ endY: mouseY });
+    rightHandle.position(slope.end.x - BORDER_SIZE / 2, slope.end.y - BORDER_SIZE / 4);
   }
 }
 
@@ -142,8 +157,8 @@ function drawVector(start, vector) {
 }
 
 function setSlope({ startY = slope.start.y, endY = slope.end.y } = {}) {
-  start = createVector(0, startY);
-  end = createVector(width, endY);
+  start = createVector(0, clampY(startY));
+  end = createVector(width, clampY(endY));
 
   slope = {
     start,
@@ -151,6 +166,10 @@ function setSlope({ startY = slope.start.y, endY = slope.end.y } = {}) {
     gradient: (end.y - start.y) / (end.x - start.x),
     angle: atan(end.x / start.y),
   };
+}
+
+function clampY(value) {
+  return Math.min(Math.max(value, (3 * BORDER_SIZE) / 8), height - (3 * BORDER_SIZE) / 8);
 }
 
 class RigidBody {
