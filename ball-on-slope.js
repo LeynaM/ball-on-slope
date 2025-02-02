@@ -26,7 +26,7 @@ function setup() {
   setCanvasSize();
   canvas.mouseClicked(spawnBall);
 
-  addSlider(0.1, 10, 0.5);
+  addSlider(0.1, 1, 0.5);
 
   const leftHandleY = height * 0.5;
   const rightHandleY = height * 0.7;
@@ -169,6 +169,9 @@ function addDragHandles(leftHandleY, rightHandleY) {
   leftHandle.mousePressed(() => {
     isLeftHandlePressed = true;
   });
+  leftHandle.touchStarted(() => {
+    isLeftHandlePressed = true;
+  });
 
   rightHandle = createDiv();
   rightHandle.parent("canvas-wrapper");
@@ -177,6 +180,9 @@ function addDragHandles(leftHandleY, rightHandleY) {
   rightHandle.addClass("handle");
 
   rightHandle.mousePressed(() => {
+    isRightHandlePressed = true;
+  });
+  rightHandle.touchStarted(() => {
     isRightHandlePressed = true;
   });
 }
@@ -189,14 +195,30 @@ function setRightHandlePosition(rightHandleY) {
   rightHandle.position(width, rightHandleY - BORDER_SIZE / 2);
 }
 
-function mouseReleased() {
+function releaseHandles() {
   setTimeout(() => {
     isLeftHandlePressed = false;
     isRightHandlePressed = false;
   }, 0);
 }
 
+function mouseReleased() {
+  releaseHandles();
+}
+
+function touchEnded() {
+  releaseHandles();
+}
+
+function touchMoved() {
+  moveHandles();
+}
+
 function mouseDragged() {
+  moveHandles();
+}
+
+function moveHandles() {
   if (isLeftHandlePressed) {
     const clampedY = clampY(mouseY);
     setLeftHandlePosition(clampedY);
