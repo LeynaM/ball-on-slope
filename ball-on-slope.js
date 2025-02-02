@@ -148,7 +148,7 @@ function findNormalVector(ball, edge) {
 function addSlider(min, max, initial) {
   let sliderWrapper = createDiv();
   sliderWrapper.parent("canvas-wrapper");
-  sliderWrapper.position(35, 35);
+  // sliderWrapper.position(35, 35);
   sliderWrapper.addClass("slider-wrapper");
 
   let label = createSpan("Gravity");
